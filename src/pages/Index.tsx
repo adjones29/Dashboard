@@ -125,6 +125,7 @@ const Dashboard = () => {
         <div className="mb-8 flex gap-4 overflow-x-auto pb-2">
           <Button 
             className="btn-primary whitespace-nowrap"
+            onClick={() => window.location.hash = '#/routines'}
           >
             ⚡ Routines
           </Button>
@@ -161,7 +162,8 @@ const Dashboard = () => {
         {/* Summary Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {/* Routines Summary */}
-          <div className="dashboard-card p-6 cursor-pointer hover:shadow-lg transition-shadow">
+          <div className="dashboard-card p-6 cursor-pointer hover:shadow-lg transition-shadow"
+               onClick={() => window.location.hash = '#/routines'}>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-gradient-to-br from-warning/20 to-accent/10 rounded-xl flex items-center justify-center">
                 <span className="text-warning text-lg">⚡</span>
@@ -271,7 +273,8 @@ const Dashboard = () => {
           </div>
 
           {/* Countdown Clock Summary */}
-          <div className="dashboard-card p-6 cursor-pointer hover:shadow-lg transition-shadow">
+          <div className="dashboard-card p-6 cursor-pointer hover:shadow-lg transition-shadow"
+               onClick={() => window.location.hash = '#/countdowns'}>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-gradient-to-br from-danger/20 to-warning/10 rounded-xl flex items-center justify-center">
                 <span className="text-danger text-lg">⏰</span>
