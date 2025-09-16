@@ -3,6 +3,8 @@ import { Sun, Moon, Search, RefreshCw, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import KanbanSummaryCard from "@/components/KanbanSummaryCard";
+import NotesCard from "@/components/NotesCard";
 
 const Dashboard = () => {
   const [theme, setTheme] = useState<"light" | "dark" | null>(null);
@@ -151,7 +153,7 @@ const Dashboard = () => {
         </div>
 
         {/* Summary Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {/* Quick Links Summary */}
           <div className="dashboard-card p-6 cursor-pointer hover:shadow-lg transition-shadow" 
                onClick={() => window.location.hash = '#/quick-links'}>
@@ -230,6 +232,12 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
+
+          {/* Kanban Summary */}
+          <KanbanSummaryCard />
+
+          {/* Notes */}
+          <NotesCard />
         </div>
       </main>
     </div>

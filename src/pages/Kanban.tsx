@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Sun, Moon, Search, RefreshCw, User, Plus, Edit, Trash2, Calendar } from "lucide-react";
+import { ArrowLeft, Plus, Edit, Trash2, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -28,7 +28,6 @@ const COLUMN_CONFIG = {
 };
 
 const Kanban = () => {
-  const [theme, setTheme] = useState<"light" | "dark" | null>(null);
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [filteredCards, setFilteredCards] = useState<KanbanCard[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -44,15 +43,6 @@ const Kanban = () => {
   });
   const { toast } = useToast();
 
-  // Initialize theme
-  useEffect(() => {
-    const savedTheme = localStorage.getItem("dashboard-theme") as "light" | "dark" | null;
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const initialTheme = savedTheme || (prefersDark ? "dark" : "light");
-    
-    setTheme(initialTheme);
-    document.documentElement.setAttribute("data-theme", initialTheme);
-  }, []);
 
   // Load cards from localStorage
   useEffect(() => {
@@ -91,17 +81,6 @@ const Kanban = () => {
     localStorage.setItem("kanban-cards", JSON.stringify(updatedCards));
   };
 
-  const toggleTheme = () => {
-    const newTheme = theme === "light" ? "dark" : "light";
-    setTheme(newTheme);
-    document.documentElement.setAttribute("data-theme", newTheme);
-    localStorage.setItem("dashboard-theme", newTheme);
-    
-    toast({
-      description: `Switched to ${newTheme} mode`,
-      duration: 2000,
-    });
-  };
 
   const handleAddCard = () => {
     if (!newCard.title.trim()) return;
@@ -231,77 +210,20 @@ const Kanban = () => {
       <header className="sticky top-0 z-50 bg-surface/80 backdrop-blur-xl border-b border-border/40">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            {/* Left: Logo & Navigation */}
             <div className="flex items-center space-x-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-2xl flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold text-lg">A</span>
-              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => window.location.hash = '#/'}
+                className="hover:bg-muted/20"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Dashboard
+              </Button>
               <div className="hidden sm:block">
                 <h1 className="text-xl font-bold">Kanban Board</h1>
-                <div className="flex gap-2 text-sm">
-                  <button 
-                    onClick={() => window.location.hash = '#/'}
-                    className="text-muted hover:text-primary transition-colors"
-                  >
-                    Dashboard
-                  </button>
-                  <span className="text-muted">/</span>
-                  <span className="text-foreground">Kanban</span>
-                </div>
+                <p className="text-sm text-muted">Manage your work</p>
               </div>
-            </div>
-
-            {/* Center: Search */}
-            <div className="flex-1 max-w-md mx-8 hidden md:block">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted w-4 h-4" />
-                <Input 
-                  placeholder="Search cards..." 
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-surface/50 border-border/40 focus:border-primary/50"
-                />
-              </div>
-            </div>
-
-            {/* Right: Actions */}
-            <div className="flex items-center space-x-2">
-              <Select value={selectedTag} onValueChange={setSelectedTag}>
-                <SelectTrigger className="w-32 bg-surface/50 border-border/40">
-                  <SelectValue placeholder="Filter by tag" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All tags</SelectItem>
-                  {getAllTags().map(tag => (
-                    <SelectItem key={tag} value={tag}>{tag}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => window.location.reload()}
-                className="hover:bg-muted/20"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </Button>
-
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={toggleTheme}
-                className="hover:bg-muted/20"
-              >
-                {theme === "light" ? 
-                  <Moon className="w-4 h-4" /> : 
-                  <Sun className="w-4 h-4" />
-                }
-              </Button>
-
-              <Button variant="ghost" size="sm" className="hover:bg-muted/20">
-                <User className="w-4 h-4" />
-              </Button>
             </div>
           </div>
         </div>
@@ -316,6 +238,29 @@ const Kanban = () => {
             <Badge variant="outline" className="text-sm">
               {cards.length} cards
             </Badge>
+          </div>
+
+          {/* Search and Filter */}
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <Input 
+                placeholder="Search cards..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-8 w-64"
+              />
+            </div>
+            <Select value={selectedTag} onValueChange={setSelectedTag}>
+              <SelectTrigger className="w-32">
+                <SelectValue placeholder="Filter by tag" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All tags</SelectItem>
+                {getAllTags().map(tag => (
+                  <SelectItem key={tag} value={tag}>{tag}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           
           <Dialog open={isAddCardOpen} onOpenChange={setIsAddCardOpen}>
