@@ -34,16 +34,13 @@ export const useQuickLinks = () => {
 
   const addLink = async (linkData: Omit<QuickLinkInsert, 'user_id'>) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
       const maxPosition = Math.max(...links.map(l => l.position || 0), -1);
 
       const { data, error } = await supabase
         .from('quick_links')
         .insert({
           ...linkData,
-          user_id: user.id,
+          user_id: null, // No authentication required
           position: maxPosition + 1,
         })
         .select()

@@ -34,16 +34,13 @@ export const useTodos = () => {
 
   const addTodo = async (todoData: { text: string }) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
       const maxPosition = Math.max(...todos.map(t => t.position || 0), -1);
 
       const { data, error } = await supabase
         .from('todos')
         .insert({
           text: todoData.text,
-          user_id: user.id,
+          user_id: null, // No authentication required
           position: maxPosition + 1,
           done: false,
         })

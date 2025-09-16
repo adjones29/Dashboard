@@ -34,16 +34,13 @@ export const useRoutines = () => {
 
   const addRoutine = async (routineData: { text: string }) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
       const maxPosition = Math.max(...routines.map(r => r.position || 0), -1);
 
       const { data, error } = await supabase
         .from('routines')
         .insert({
           text: routineData.text,
-          user_id: user.id,
+          user_id: null, // No authentication required
           position: maxPosition + 1,
           done: false,
         })

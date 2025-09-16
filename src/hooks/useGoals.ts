@@ -62,16 +62,13 @@ export const useGoals = () => {
 
   const addGoal = async (goalData: { title: string }) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
       const maxPosition = Math.max(...goals.map(g => g.position || 0), -1);
 
       const { data, error } = await supabase
         .from('okr_goals')
         .insert({
           title: goalData.title,
-          user_id: user.id,
+          user_id: null, // No authentication required
           position: maxPosition + 1,
         })
         .select()
@@ -102,9 +99,6 @@ export const useGoals = () => {
 
   const addGoalItem = async (goalId: string, text: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
       const goal = goals.find(g => g.id === goalId);
       if (!goal) throw new Error('Goal not found');
 
@@ -115,7 +109,7 @@ export const useGoals = () => {
         .insert({
           goal_id: goalId,
           text,
-          user_id: user.id,
+          user_id: null, // No authentication required
           position: maxPosition + 1,
         })
         .select()

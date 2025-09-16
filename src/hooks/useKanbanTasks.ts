@@ -34,9 +34,6 @@ export const useKanbanTasks = () => {
 
   const addTask = async (taskData: { text: string; column?: string }) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
       const column = taskData.column || 'backlog';
       const maxPosition = Math.max(
         ...tasks.filter(t => t.column === column).map(t => t.position || 0), 
@@ -48,7 +45,7 @@ export const useKanbanTasks = () => {
         .insert({
           text: taskData.text,
           column,
-          user_id: user.id,
+          user_id: null, // No authentication required
           position: maxPosition + 1,
         })
         .select()
