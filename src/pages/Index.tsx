@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import KanbanSummaryCard from "@/components/KanbanSummaryCard";
 import ScratchpadCard from "@/components/ScratchpadCard";
+import RoutinesWidget from "@/components/RoutinesWidget";
+import CountdownWidget from "@/components/CountdownWidget";
 
 const Dashboard = () => {
   const [theme, setTheme] = useState<"light" | "dark" | null>(null);
@@ -169,33 +171,7 @@ const Dashboard = () => {
         {/* Summary Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {/* Routines Summary */}
-          <div className="dashboard-card p-6 cursor-pointer hover:shadow-lg transition-shadow"
-               onClick={() => window.location.hash = '#/routines'}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-warning/20 to-accent/10 rounded-xl flex items-center justify-center">
-                <span className="text-warning text-lg">⚡</span>
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold">Daily Routine</h3>
-                <p className="text-sm text-muted">Your daily habits</p>
-              </div>
-            </div>
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span>Morning Workout</span>
-                  <span className="text-warning">75%</span>
-                </div>
-                <div className="w-full bg-muted/20 rounded-full h-2">
-                  <div className="bg-gradient-to-r from-warning to-warning/80 h-2 rounded-full" style={{width: '75%'}}></div>
-                </div>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-muted">3 of 4 completed</span>
-                <span className="text-primary hover:underline">View all →</span>
-              </div>
-            </div>
-          </div>
+          <RoutinesWidget />
 
           {/* Goals Summary */}
           <div className="dashboard-card p-6 cursor-pointer hover:shadow-lg transition-shadow"
@@ -280,34 +256,7 @@ const Dashboard = () => {
           </div>
 
           {/* Countdown Clock Summary */}
-          <div className="dashboard-card p-6 cursor-pointer hover:shadow-lg transition-shadow"
-               onClick={() => window.location.hash = '#/countdowns'}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-danger/20 to-warning/10 rounded-xl flex items-center justify-center">
-                <span className="text-danger text-lg">⏰</span>
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold">Countdown Clock</h3>
-                <p className="text-sm text-muted">Track important dates</p>
-              </div>
-            </div>
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span>Project Deadline</span>
-                  <span className="text-danger font-semibold">12 days</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Birthday Party</span>
-                  <span className="text-warning font-semibold">45 days</span>
-                </div>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-muted">3 countdowns active</span>
-                <span className="text-primary hover:underline">View all →</span>
-              </div>
-            </div>
-          </div>
+          <CountdownWidget />
         </div>
 
         {/* Full Width Scratchpad Section */}

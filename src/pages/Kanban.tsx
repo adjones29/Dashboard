@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, Plus, Edit, Trash2, Calendar } from "lucide-react";
+import { ArrowLeft, Plus, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -7,202 +7,225 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
+import { listKanbanTasks, createKanbanTask, updateKanbanTask, deleteKanbanTask } from "@/lib/data";
 
-interface KanbanCard {
+interface KanbanTask {
   id: string;
-  title: string;
-  description?: string;
-  status: 'backlog' | 'in_progress' | 'blocked' | 'done';
+  text: string;
+  column: string;
   position: number;
-  tags: string[];
-  due_date?: string;
-  created_at: string;
-  user_id?: string;
 }
 
 const COLUMN_CONFIG = {
   backlog: { title: "Backlog", color: "bg-muted/50", textColor: "text-muted-foreground" },
-  in_progress: { title: "In Progress", color: "bg-primary/10", textColor: "text-primary" },
-  blocked: { title: "Blocked", color: "bg-danger/10", textColor: "text-danger" },
+  todo: { title: "To Do", color: "bg-primary/10", textColor: "text-primary" },
+  doing: { title: "Doing", color: "bg-warning/10", textColor: "text-warning" },
   done: { title: "Done", color: "bg-accent/10", textColor: "text-accent" }
 };
 
 const Kanban = () => {
-  const [cards, setCards] = useState<KanbanCard[]>([]);
-  const [filteredCards, setFilteredCards] = useState<KanbanCard[]>([]);
+  const [tasks, setTasks] = useState<KanbanTask[]>([]);
+  const [filteredTasks, setFilteredTasks] = useState<KanbanTask[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedTag, setSelectedTag] = useState<string>("all");
-  const [isAddCardOpen, setIsAddCardOpen] = useState(false);
-  const [editingCard, setEditingCard] = useState<KanbanCard | null>(null);
-  const [newCard, setNewCard] = useState({
-    title: "",
-    description: "",
-    status: "backlog" as const,
-    tags: "",
-    due_date: ""
+  const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<KanbanTask | null>(null);
+  const [newTask, setNewTask] = useState({
+    text: "",
+    column: "backlog" as keyof typeof COLUMN_CONFIG
   });
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-
-  // Load cards from localStorage
+  // Load tasks from Supabase
   useEffect(() => {
-    const savedCards = localStorage.getItem("kanban-cards");
-    if (savedCards) {
-      try {
-        const parsedCards = JSON.parse(savedCards);
-        setCards(parsedCards);
-      } catch (error) {
-        console.error("Error parsing saved cards:", error);
-      }
-    }
+    loadTasks();
   }, []);
 
-  // Filter cards based on search and tag
+  const loadTasks = async () => {
+    try {
+      const { data, error } = await listKanbanTasks();
+      if (error) throw error;
+      setTasks(data || []);
+    } catch (error) {
+      console.error("Error loading tasks:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load tasks",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter tasks based on search
   useEffect(() => {
-    let filtered = cards;
+    let filtered = tasks;
     
     if (searchTerm) {
-      filtered = filtered.filter(card => 
-        card.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        card.description?.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter(task => 
+        task.text.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
     
-    if (selectedTag !== "all") {
-      filtered = filtered.filter(card => card.tags.includes(selectedTag));
-    }
-    
-    setFilteredCards(filtered);
-  }, [cards, searchTerm, selectedTag]);
+    setFilteredTasks(filtered);
+  }, [tasks, searchTerm]);
 
-  // Save cards to localStorage
-  const saveCards = (updatedCards: KanbanCard[]) => {
-    setCards(updatedCards);
-    localStorage.setItem("kanban-cards", JSON.stringify(updatedCards));
-  };
-
-
-  const handleAddCard = () => {
-    if (!newCard.title.trim()) return;
+  const handleAddTask = async () => {
+    if (!newTask.text.trim()) return;
 
     const maxPosition = Math.max(
-      ...cards.filter(c => c.status === newCard.status).map(c => c.position),
+      ...tasks.filter(t => t.column === newTask.column).map(t => t.position),
       -1
     );
 
-    const card: KanbanCard = {
-      id: Date.now().toString(),
-      title: newCard.title.trim(),
-      description: newCard.description.trim() || undefined,
-      status: newCard.status,
+    const task = {
+      text: newTask.text.trim(),
+      column: newTask.column,
       position: maxPosition + 1,
-      tags: newCard.tags ? newCard.tags.split(',').map(tag => tag.trim()).filter(Boolean) : [],
-      due_date: newCard.due_date || undefined,
-      created_at: new Date().toISOString(),
     };
 
-    saveCards([...cards, card]);
-    setNewCard({ title: "", description: "", status: "backlog", tags: "", due_date: "" });
-    setIsAddCardOpen(false);
-    
-    toast({
-      description: `Card added to ${COLUMN_CONFIG[newCard.status].title}`,
-      duration: 2000,
-    });
+    try {
+      const { data, error } = await createKanbanTask(task);
+      if (error) throw error;
+      
+      if (data && data[0]) {
+        setTasks(prev => [...prev, data[0]]);
+        setNewTask({ text: "", column: "backlog" });
+        setIsAddTaskOpen(false);
+        
+        toast({
+          description: `Task added to ${COLUMN_CONFIG[newTask.column].title}`,
+          duration: 2000,
+        });
+      }
+    } catch (error) {
+      console.error("Error creating task:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create task",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleUpdateCard = () => {
-    if (!editingCard || !editingCard.title.trim()) return;
+  const handleUpdateTask = async () => {
+    if (!editingTask || !editingTask.text.trim()) return;
 
-    const updatedCards = cards.map(card => 
-      card.id === editingCard.id ? editingCard : card
-    );
-    
-    saveCards(updatedCards);
-    setEditingCard(null);
-    
-    toast({
-      description: "Card updated successfully",
-      duration: 2000,
-    });
+    try {
+      const { data, error } = await updateKanbanTask(editingTask.id, {
+        text: editingTask.text,
+        column: editingTask.column,
+        position: editingTask.position
+      });
+      if (error) throw error;
+      
+      setTasks(prev => prev.map(task => 
+        task.id === editingTask.id ? editingTask : task
+      ));
+      setEditingTask(null);
+      
+      toast({
+        description: "Task updated successfully",
+        duration: 2000,
+      });
+    } catch (error) {
+      console.error("Error updating task:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update task",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleDeleteCard = (cardId: string) => {
-    const updatedCards = cards.filter(card => card.id !== cardId);
-    saveCards(updatedCards);
-    
-    toast({
-      description: "Card deleted",
-      duration: 2000,
-    });
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      const { error } = await deleteKanbanTask(taskId);
+      if (error) throw error;
+      
+      setTasks(prev => prev.filter(task => task.id !== taskId));
+      
+      toast({
+        description: "Task deleted",
+        duration: 2000,
+      });
+    } catch (error) {
+      console.error("Error deleting task:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete task",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleDragEnd = (result: DropResult) => {
+  const handleDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
 
     const { source, destination } = result;
-    const sourceStatus = source.droppableId as KanbanCard['status'];
-    const destinationStatus = destination.droppableId as KanbanCard['status'];
+    const sourceColumn = source.droppableId;
+    const destinationColumn = destination.droppableId;
 
-    const updatedCards = [...cards];
-    const cardToMove = updatedCards.find(card => card.id === result.draggableId);
+    const updatedTasks = [...tasks];
+    const taskToMove = updatedTasks.find(task => task.id === result.draggableId);
     
-    if (!cardToMove) return;
+    if (!taskToMove) return;
 
-    // Remove card from source
-    const sourceCards = updatedCards.filter(card => 
-      card.status === sourceStatus && card.id !== cardToMove.id
-    );
-    
-    // Update positions in source column
-    sourceCards
-      .sort((a, b) => a.position - b.position)
-      .forEach((card, index) => {
-        const cardIndex = updatedCards.findIndex(c => c.id === card.id);
-        if (cardIndex !== -1) {
-          updatedCards[cardIndex].position = index;
-        }
+    // Update the task
+    taskToMove.column = destinationColumn;
+    taskToMove.position = destination.index;
+
+    setTasks(updatedTasks);
+
+    // Update in database
+    try {
+      const { error } = await updateKanbanTask(taskToMove.id, {
+        column: destinationColumn,
+        position: destination.index
       });
-
-    // Update moved card
-    const movedCardIndex = updatedCards.findIndex(c => c.id === cardToMove.id);
-    if (movedCardIndex !== -1) {
-      updatedCards[movedCardIndex].status = destinationStatus;
-      updatedCards[movedCardIndex].position = destination.index;
-    }
-
-    // Update positions in destination column
-    const destinationCards = updatedCards.filter(card => 
-      card.status === destinationStatus
-    ).sort((a, b) => a.position - b.position);
-
-    destinationCards.forEach((card, index) => {
-      const cardIndex = updatedCards.findIndex(c => c.id === card.id);
-      if (cardIndex !== -1) {
-        updatedCards[cardIndex].position = index;
+      if (error) throw error;
+      
+      if (sourceColumn !== destinationColumn) {
+        toast({
+          description: `Task moved to ${COLUMN_CONFIG[destinationColumn as keyof typeof COLUMN_CONFIG].title}`,
+          duration: 2000,
+        });
       }
-    });
-
-    saveCards(updatedCards);
-    
-    if (sourceStatus !== destinationStatus) {
+    } catch (error) {
+      console.error("Error updating task position:", error);
+      // Revert the change
+      loadTasks();
       toast({
-        description: `Card moved to ${COLUMN_CONFIG[destinationStatus].title}`,
-        duration: 2000,
+        title: "Error",
+        description: "Failed to move task",
+        variant: "destructive",
       });
     }
   };
 
-  const getCardsByStatus = (status: KanbanCard['status']) => {
-    return filteredCards
-      .filter(card => card.status === status)
+  const getTasksByColumn = (column: string) => {
+    return filteredTasks
+      .filter(task => task.column === column)
       .sort((a, b) => a.position - b.position);
   };
 
-  const getAllTags = () => {
-    const allTags = cards.flatMap(card => card.tags);
-    return Array.from(new Set(allTags));
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-bg to-bg/80 transition-all duration-500">
+        <div className="animate-pulse">
+          <div className="h-16 bg-muted/20 mb-8"></div>
+          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="h-96 bg-muted/20 rounded-lg"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-bg to-bg/80 transition-all duration-500">
@@ -222,7 +245,7 @@ const Kanban = () => {
               </Button>
               <div className="hidden sm:block">
                 <h1 className="text-xl font-bold">Kanban Board</h1>
-                <p className="text-sm text-muted">Manage your work</p>
+                <p className="text-sm text-muted">Manage your tasks</p>
               </div>
             </div>
           </div>
@@ -236,83 +259,52 @@ const Kanban = () => {
           <div className="flex items-center gap-4">
             <h2 className="text-2xl font-bold">Project Board</h2>
             <Badge variant="outline" className="text-sm">
-              {cards.length} cards
+              {tasks.length} tasks
             </Badge>
           </div>
 
-          {/* Search and Filter */}
+          {/* Search */}
           <div className="flex items-center gap-4">
-            <div className="relative">
-              <Input 
-                placeholder="Search cards..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8 w-64"
-              />
-            </div>
-            <Select value={selectedTag} onValueChange={setSelectedTag}>
-              <SelectTrigger className="w-32">
-                <SelectValue placeholder="Filter by tag" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All tags</SelectItem>
-                {getAllTags().map(tag => (
-                  <SelectItem key={tag} value={tag}>{tag}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Input 
+              placeholder="Search tasks..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-64"
+            />
           </div>
           
-          <Dialog open={isAddCardOpen} onOpenChange={setIsAddCardOpen}>
+          <Dialog open={isAddTaskOpen} onOpenChange={setIsAddTaskOpen}>
             <DialogTrigger asChild>
               <Button className="btn-primary">
                 <Plus className="w-4 h-4 mr-2" />
-                Add Card
+                Add Task
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Add New Card</DialogTitle>
+                <DialogTitle>Add New Task</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 mt-4">
                 <Input
-                  value={newCard.title}
-                  onChange={(e) => setNewCard(prev => ({ ...prev, title: e.target.value }))}
-                  placeholder="Card title..."
+                  value={newTask.text}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, text: e.target.value }))}
+                  placeholder="Task description..."
                   className="input-field"
                 />
-                <Input
-                  value={newCard.description}
-                  onChange={(e) => setNewCard(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Description (optional)..."
-                  className="input-field"
-                />
-                <Select value={newCard.status} onValueChange={(value: any) => setNewCard(prev => ({ ...prev, status: value }))}>
+                <Select value={newTask.column} onValueChange={(value: keyof typeof COLUMN_CONFIG) => setNewTask(prev => ({ ...prev, column: value }))}>
                   <SelectTrigger className="input-field">
                     <SelectValue placeholder="Select column" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(COLUMN_CONFIG).map(([status, config]) => (
-                      <SelectItem key={status} value={status}>
+                    {Object.entries(COLUMN_CONFIG).map(([column, config]) => (
+                      <SelectItem key={column} value={column}>
                         {config.title}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <Input
-                  value={newCard.tags}
-                  onChange={(e) => setNewCard(prev => ({ ...prev, tags: e.target.value }))}
-                  placeholder="Tags (comma separated)..."
-                  className="input-field"
-                />
-                <Input
-                  type="date"
-                  value={newCard.due_date}
-                  onChange={(e) => setNewCard(prev => ({ ...prev, due_date: e.target.value }))}
-                  className="input-field"
-                />
-                <Button onClick={handleAddCard} className="btn-primary w-full">
-                  Add Card
+                <Button onClick={handleAddTask} className="btn-primary w-full">
+                  Add Task
                 </Button>
               </div>
             </DialogContent>
@@ -322,21 +314,21 @@ const Kanban = () => {
         {/* Kanban Board */}
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {Object.entries(COLUMN_CONFIG).map(([status, config]) => {
-              const columnCards = getCardsByStatus(status as KanbanCard['status']);
+            {Object.entries(COLUMN_CONFIG).map(([column, config]) => {
+              const columnTasks = getTasksByColumn(column);
               
               return (
-                <div key={status} className="dashboard-card p-4">
+                <div key={column} className="dashboard-card p-4">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className={`font-semibold ${config.textColor}`}>
                       {config.title}
                     </h3>
                     <Badge variant="outline" className="text-xs">
-                      {columnCards.length}
+                      {columnTasks.length}
                     </Badge>
                   </div>
                   
-                  <Droppable droppableId={status}>
+                  <Droppable droppableId={column}>
                     {(provided, snapshot) => (
                       <div
                         ref={provided.innerRef}
@@ -345,8 +337,8 @@ const Kanban = () => {
                           snapshot.isDraggingOver ? config.color : 'bg-transparent'
                         }`}
                       >
-                        {columnCards.map((card, index) => (
-                          <Draggable key={card.id} draggableId={card.id} index={index}>
+                        {columnTasks.map((task, index) => (
+                          <Draggable key={task.id} draggableId={task.id} index={index}>
                             {(provided, snapshot) => (
                               <div
                                 ref={provided.innerRef}
@@ -358,53 +350,32 @@ const Kanban = () => {
                               >
                                 <div className="flex justify-between items-start mb-2">
                                   <h4 className="text-sm font-medium text-foreground flex-1 pr-2">
-                                    {card.title}
+                                    {task.text}
                                   </h4>
                                   <div className="flex opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button
-                                      onClick={() => setEditingCard(card)}
+                                      onClick={() => setEditingTask(task)}
                                       className="btn-ghost p-1 mr-1"
                                     >
                                       <Edit className="w-3 h-3" />
                                     </button>
                                     <button
-                                      onClick={() => handleDeleteCard(card.id)}
+                                      onClick={() => handleDeleteTask(task.id)}
                                       className="btn-ghost p-1"
                                     >
                                       <Trash2 className="w-3 h-3 text-danger" />
                                     </button>
                                   </div>
                                 </div>
-                                
-                                {card.description && (
-                                  <p className="text-xs text-muted mb-2">{card.description}</p>
-                                )}
-                                
-                                {card.tags.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 mb-2">
-                                    {card.tags.map(tag => (
-                                      <Badge key={tag} variant="secondary" className="text-xs px-1 py-0">
-                                        {tag}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                                )}
-                                
-                                {card.due_date && (
-                                  <div className="flex items-center text-xs text-muted mt-2">
-                                    <Calendar className="w-3 h-3 mr-1" />
-                                    {new Date(card.due_date).toLocaleDateString()}
-                                  </div>
-                                )}
                               </div>
                             )}
                           </Draggable>
                         ))}
                         {provided.placeholder}
                         
-                        {columnCards.length === 0 && (
+                        {columnTasks.length === 0 && (
                           <div className="text-center py-8 text-muted text-sm opacity-50">
-                            Drop cards here
+                            Drop tasks here
                           </div>
                         )}
                       </div>
@@ -416,52 +387,34 @@ const Kanban = () => {
           </div>
         </DragDropContext>
 
-        {/* Edit Card Dialog */}
-        <Dialog open={!!editingCard} onOpenChange={() => setEditingCard(null)}>
+        {/* Edit Task Dialog */}
+        <Dialog open={!!editingTask} onOpenChange={() => setEditingTask(null)}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Edit Card</DialogTitle>
+              <DialogTitle>Edit Task</DialogTitle>
             </DialogHeader>
-            {editingCard && (
+            {editingTask && (
               <div className="space-y-4 mt-4">
                 <Input
-                  value={editingCard.title}
-                  onChange={(e) => setEditingCard(prev => prev ? { ...prev, title: e.target.value } : null)}
-                  placeholder="Card title..."
+                  value={editingTask.text}
+                  onChange={(e) => setEditingTask(prev => prev ? { ...prev, text: e.target.value } : null)}
+                  placeholder="Task description..."
                   className="input-field"
                 />
-                <Input
-                  value={editingCard.description || ""}
-                  onChange={(e) => setEditingCard(prev => prev ? { ...prev, description: e.target.value } : null)}
-                  placeholder="Description (optional)..."
-                  className="input-field"
-                />
-                <Select value={editingCard.status} onValueChange={(value: any) => setEditingCard(prev => prev ? { ...prev, status: value } : null)}>
+                <Select value={editingTask.column} onValueChange={(value: string) => setEditingTask(prev => prev ? { ...prev, column: value } : null)}>
                   <SelectTrigger className="input-field">
                     <SelectValue placeholder="Select column" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(COLUMN_CONFIG).map(([status, config]) => (
-                      <SelectItem key={status} value={status}>
+                    {Object.entries(COLUMN_CONFIG).map(([column, config]) => (
+                      <SelectItem key={column} value={column}>
                         {config.title}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <Input
-                  value={editingCard.tags.join(', ')}
-                  onChange={(e) => setEditingCard(prev => prev ? { ...prev, tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean) } : null)}
-                  placeholder="Tags (comma separated)..."
-                  className="input-field"
-                />
-                <Input
-                  type="date"
-                  value={editingCard.due_date || ""}
-                  onChange={(e) => setEditingCard(prev => prev ? { ...prev, due_date: e.target.value } : null)}
-                  className="input-field"
-                />
-                <Button onClick={handleUpdateCard} className="btn-primary w-full">
-                  Update Card
+                <Button onClick={handleUpdateTask} className="btn-primary w-full">
+                  Update Task
                 </Button>
               </div>
             )}
