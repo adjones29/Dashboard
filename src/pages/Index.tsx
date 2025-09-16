@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import KanbanSummaryCard from "@/components/KanbanSummaryCard";
 import ScratchpadCard from "@/components/ScratchpadCard";
-import RoutineCard from "@/components/RoutineCard";
 
 const Dashboard = () => {
   const [theme, setTheme] = useState<"light" | "dark" | null>(null);
@@ -236,9 +235,6 @@ const Dashboard = () => {
 
           {/* Kanban Summary */}
           <KanbanSummaryCard />
-          
-          {/* Daily Routine */}
-          <RoutineCard />
         </div>
 
         {/* Full Width Scratchpad Section */}

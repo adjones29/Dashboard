@@ -4,67 +4,139 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { useGoals } from "@/hooks/useGoals";
-import { useAuth } from "@/hooks/useAuth";
+
+interface Achievement {
+  id: string;
+  text: string;
+  completed: boolean;
+}
+
+interface Goal {
+  id: string;
+  title: string;
+  description: string;
+  targetDate: string;
+  progress: number;
+  achievements: Achievement[];
+  status: "active" | "completed" | "archived";
+}
 
 const GoalsPage = () => {
-  const { goals, loading, addGoal, addGoalItem, toggleGoalItem } = useGoals();
-  const { user } = useAuth();
+  const [goals, setGoals] = useState<Goal[]>([
+    {
+      id: "1",
+      title: "Assist in streamlining the NextGen onboarding process",
+      description: "Work with PMO and Product teams to improve onboarding efficiency",
+      targetDate: "2025-12-31",
+      progress: 75,
+      status: "active",
+      achievements: [
+        { id: "1-1", text: "Worked with PMO on defining a new base set of features to roll out by industry", completed: true },
+        { id: "1-2", text: "Worked with Product to build and refine the Business and Technical requirements documents for the Pre-Sales process", completed: true },
+        { id: "1-3", text: "Worked with PMO on defining best practices in onboarding timeline", completed: true },
+        { id: "1-4", text: "Implement new onboarding dashboard", completed: false },
+      ]
+    },
+    {
+      id: "2", 
+      title: "Upgrade the Demo site with the latest features and experiences",
+      description: "Enhance demo site to showcase new capabilities",
+      targetDate: "2025-10-15",
+      progress: 60,
+      status: "active",
+      achievements: [
+        { id: "2-1", text: "Worked with Skinning and marketing to redo the site home page", completed: true },
+        { id: "2-2", text: "Defined process with Product to now deploy new features to the Demo site once they are production ready", completed: true },
+        { id: "2-3", text: "Add mobile responsive design", completed: false },
+      ]
+    },
+    {
+      id: "3",
+      title: "Hire another Solutions Consultant", 
+      description: "Expand the team with qualified talent",
+      targetDate: "2025-11-30",
+      progress: 25,
+      status: "active",
+      achievements: [
+        { id: "3-1", text: "Reviewed and updated the \"Director - SE\" role job description and submitted to leadership in June 2025", completed: true },
+        { id: "3-2", text: "Post job listing on relevant platforms", completed: false },
+        { id: "3-3", text: "Conduct initial interviews", completed: false },
+      ]
+    }
+  ]);
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [newGoal, setNewGoal] = useState({
     title: "",
+    description: "", 
+    targetDate: ""
   });
   const { toast } = useToast();
 
-  const handleAddGoal = async () => {
+  const handleAddGoal = () => {
     if (!newGoal.title.trim()) return;
 
-    const result = await addGoal({ title: newGoal.title.trim() });
-    
-    if (result.error) return;
+    const goal: Goal = {
+      id: Date.now().toString(),
+      title: newGoal.title.trim(),
+      description: newGoal.description.trim(),
+      targetDate: newGoal.targetDate,
+      progress: 0,
+      status: "active",
+      achievements: []
+    };
 
-    setNewGoal({ title: "" });
+    setGoals(prev => [...prev, goal]);
+    setNewGoal({ title: "", description: "", targetDate: "" });
     setShowAddForm(false);
+
+    toast({
+      description: "Goal added successfully",
+      duration: 2000,
+    });
   };
 
-  const handleToggleGoalItem = async (itemId: string) => {
-    await toggleGoalItem(itemId);
+  const toggleAchievement = (goalId: string, achievementId: string) => {
+    setGoals(prev => prev.map(goal => {
+      if (goal.id === goalId) {
+        const updatedAchievements = goal.achievements.map(achievement =>
+          achievement.id === achievementId 
+            ? { ...achievement, completed: !achievement.completed }
+            : achievement
+        );
+        
+        const completedCount = updatedAchievements.filter(a => a.completed).length;
+        const progress = updatedAchievements.length > 0 
+          ? Math.round((completedCount / updatedAchievements.length) * 100) 
+          : 0;
+        
+        return { ...goal, achievements: updatedAchievements, progress };
+      }
+      return goal;
+    }));
   };
 
-  const handleAddGoalItem = async (goalId: string, text: string) => {
+  const addAchievement = (goalId: string, text: string) => {
     if (!text.trim()) return;
-    await addGoalItem(goalId, text.trim());
+
+    setGoals(prev => prev.map(goal => {
+      if (goal.id === goalId) {
+        const newAchievement: Achievement = {
+          id: `${goalId}-${Date.now()}`,
+          text: text.trim(),
+          completed: false
+        };
+        return { ...goal, achievements: [...goal.achievements, newAchievement] };
+      }
+      return goal;
+    }));
   };
 
-  const activeGoals = goals;
+  const activeGoals = goals.filter(g => g.status === "active");
+  const completedGoals = goals.filter(g => g.status === "completed");
   const overallProgress = goals.length > 0 
     ? Math.round(goals.reduce((sum, goal) => sum + goal.progress, 0) / goals.length)
     : 0;
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-bg to-bg/80 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted">Loading goals...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-bg to-bg/80 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold mb-4">Please log in to manage your goals</h2>
-          <Button onClick={() => window.location.hash = '#/auth'} className="btn-primary">
-            Go to Login
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-bg to-bg/80 transition-all duration-500">
@@ -118,7 +190,7 @@ const GoalsPage = () => {
             </div>
             <div className="flex justify-between text-sm text-muted mt-2">
               <span>{activeGoals.length} Active Goals</span>
-              <span>0 Completed</span>
+              <span>{completedGoals.length} Completed</span>
             </div>
           </div>
         </div>
@@ -141,6 +213,18 @@ const GoalsPage = () => {
                 placeholder="Goal title"
                 value={newGoal.title}
                 onChange={(e) => setNewGoal(prev => ({ ...prev, title: e.target.value }))}
+                className="input-field"
+              />
+              <Textarea
+                placeholder="Goal description (optional)"
+                value={newGoal.description}
+                onChange={(e) => setNewGoal(prev => ({ ...prev, description: e.target.value }))}
+                className="input-field min-h-[80px]"
+              />
+              <Input
+                type="date"
+                value={newGoal.targetDate}
+                onChange={(e) => setNewGoal(prev => ({ ...prev, targetDate: e.target.value }))}
                 className="input-field"
               />
             </div>
@@ -171,6 +255,9 @@ const GoalsPage = () => {
               <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-6">
                 <div className="flex-1">
                   <h4 className="text-xl font-semibold mb-2">{goal.title}</h4>
+                  {goal.description && (
+                    <p className="text-muted mb-4">{goal.description}</p>
+                  )}
                   
                   {/* Progress */}
                   <div className="space-y-2">
@@ -186,58 +273,62 @@ const GoalsPage = () => {
                     </div>
                   </div>
                 </div>
+                
+                {goal.targetDate && (
+                  <div className="flex items-center gap-2 text-sm text-muted">
+                    <Calendar className="w-4 h-4" />
+                    {new Date(goal.targetDate).toLocaleDateString()}
+                  </div>
+                )}
               </div>
 
               {/* Achievements */}
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <h5 className="font-medium">Key Results</h5>
+                  <h5 className="font-medium">Achievements</h5>
                   <span className="text-sm text-muted">
-                    {goal.items.filter(item => item.text?.includes('✓') || item.text?.includes('[x]')).length} of {goal.items.length}
+                    {goal.achievements.filter(a => a.completed).length} of {goal.achievements.length}
                   </span>
                 </div>
                 
                 <div className="space-y-2">
-                  {goal.items.map(item => {
-                    const isCompleted = item.text?.includes('✓') || item.text?.includes('[x]');
-                    return (
-                      <div 
-                        key={item.id}
-                        className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/10 transition-colors"
+                  {goal.achievements.map(achievement => (
+                    <div 
+                      key={achievement.id}
+                      className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/10 transition-colors"
+                    >
+                      <button
+                        onClick={() => toggleAchievement(goal.id, achievement.id)}
+                        className="mt-0.5 text-accent hover:scale-110 transition-transform"
                       >
-                        <button
-                          onClick={() => handleToggleGoalItem(item.id)}
-                          className="mt-0.5 text-accent hover:scale-110 transition-transform"
-                        >
-                          {isCompleted ? (
-                            <CheckCircle className="w-4 h-4" />
-                          ) : (
-                            <Circle className="w-4 h-4" />
-                          )}
-                        </button>
-                        <span 
-                          className={`flex-1 text-sm transition-all ${
-                            isCompleted
-                              ? 'text-muted line-through' 
-                              : 'text-foreground'
-                          }`}
-                        >
-                          {item.text?.replace(/^✓\s*/, '').replace(/^\[x\]\s*/, '') || ''}
-                        </span>
-                      </div>
-                    );
-                  })}
+                        {achievement.completed ? (
+                          <CheckCircle className="w-4 h-4" />
+                        ) : (
+                          <Circle className="w-4 h-4" />
+                        )}
+                      </button>
+                      <span 
+                        className={`flex-1 text-sm transition-all ${
+                          achievement.completed 
+                            ? 'text-muted line-through' 
+                            : 'text-foreground'
+                        }`}
+                      >
+                        {achievement.text}
+                      </span>
+                    </div>
+                  ))}
                   
                   {/* Add Achievement */}
                   <div className="flex items-center gap-3 p-3">
                     <Plus className="w-4 h-4 text-muted" />
                     <Input
-                      placeholder="Add new key result..."
+                      placeholder="Add new achievement..."
                       className="input-field text-sm"
                       onKeyPress={(e) => {
                         if (e.key === 'Enter') {
                           const input = e.currentTarget;
-                          handleAddGoalItem(goal.id, input.value);
+                          addAchievement(goal.id, input.value);
                           input.value = '';
                         }
                       }}
