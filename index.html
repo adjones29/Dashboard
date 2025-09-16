@@ -1,14 +1,40 @@
 <!doctype html>
+<!--
+MODERN DASHBOARD LAYOUT GUIDE
+
+This dashboard uses a card-based, mobile-first design with:
+- Responsive 12-column grid (desktop) → 8-column (tablet) → single column (mobile)
+- Theme toggle (light/dark with auto-detection)
+- Modern design system with semantic color tokens
+- Accessibility-focused with WCAG AA compliance
+
+ADDING NEW CARDS:
+1. Create component in /src/components/[Name]Card.tsx
+2. Use the .dashboard-card class for consistent styling
+3. Import and add to the grid in /src/pages/Index.tsx
+4. Follow existing patterns for headers, actions, and content
+
+DESIGN TOKENS:
+Colors are defined in /src/index.css as CSS variables:
+- --primary: Main brand color (blue)
+- --accent: Success/positive actions (green) 
+- --warning: Caution/in-progress (orange)
+- --danger: Errors/delete actions (red)
+- --muted: Secondary text and borders
+
+All components use Tailwind classes that reference these semantic tokens.
+Never use hard-coded colors - always use the design system.
+-->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>dash-reborn-17</title>
-    <meta name="description" content="Lovable Generated Project" />
-    <meta name="author" content="Lovable" />
+    <title>Personal Dashboard - Adam's Productivity Hub</title>
+    <meta name="description" content="A modern, responsive personal dashboard for managing tasks, goals, routines, and projects. Built with React and TypeScript." />
+    <meta name="author" content="Adam Jones" />
 
-    <meta property="og:title" content="dash-reborn-17" />
-    <meta property="og:description" content="Lovable Generated Project" />
+    <meta property="og:title" content="Personal Dashboard - Adam's Productivity Hub" />
+    <meta property="og:description" content="A modern, responsive personal dashboard for managing tasks, goals, routines, and projects." />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
 
