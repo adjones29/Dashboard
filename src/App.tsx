@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import QuickLinks from "./pages/QuickLinks";
 import Goals from "./pages/Goals";
 import Todo from "./pages/Todo";
+import Kanban from "./pages/Kanban";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/quick-links" element={<QuickLinks />} />
           <Route path="/goals" element={<Goals />} />
           <Route path="/todo" element={<Todo />} />
+          <Route path="/kanban" element={<Kanban />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
