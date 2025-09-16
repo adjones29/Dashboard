@@ -149,6 +149,13 @@ const Dashboard = () => {
           >
             📋 Kanban
           </Button>
+          <Button 
+            variant="outline" 
+            className="whitespace-nowrap border-border/40 hover:border-primary/50"
+            onClick={() => window.location.hash = '#/quick-links'}
+          >
+            🔗 Quick Links
+          </Button>
         </div>
 
         {/* Summary Cards Grid */}
@@ -241,6 +248,56 @@ const Dashboard = () => {
 
           {/* Kanban Summary */}
           <KanbanSummaryCard />
+
+          {/* Quick Links Summary */}
+          <div className="dashboard-card p-6 cursor-pointer hover:shadow-lg transition-shadow" 
+               onClick={() => window.location.hash = '#/quick-links'}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-primary/20 to-accent/10 rounded-xl flex items-center justify-center">
+                <span className="text-primary text-lg">🔗</span>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">Quick Links</h3>
+                <p className="text-sm text-muted">Access your shortcuts</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm text-muted">Ready to add your favorite links</p>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted">0 links saved</span>
+                <span className="text-primary hover:underline">View all →</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Countdown Clock Summary */}
+          <div className="dashboard-card p-6 cursor-pointer hover:shadow-lg transition-shadow">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-danger/20 to-warning/10 rounded-xl flex items-center justify-center">
+                <span className="text-danger text-lg">⏰</span>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">Countdown Clock</h3>
+                <p className="text-sm text-muted">Track important dates</p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <div className="flex justify-between text-sm">
+                  <span>Project Deadline</span>
+                  <span className="text-danger font-semibold">12 days</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Birthday Party</span>
+                  <span className="text-warning font-semibold">45 days</span>
+                </div>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted">3 countdowns active</span>
+                <span className="text-primary hover:underline">View all →</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Full Width Scratchpad Section */}
