@@ -157,6 +157,13 @@ const Dashboard = () => {
           >
             🔗 Quick Links
           </Button>
+          <Button 
+            variant="outline" 
+            className="whitespace-nowrap border-border/40 hover:border-primary/50"
+            onClick={() => window.location.hash = '#/countdowns'}
+          >
+            ⏰ Countdowns
+          </Button>
         </div>
 
         {/* Summary Cards Grid */}
