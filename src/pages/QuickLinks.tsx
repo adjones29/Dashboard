@@ -3,24 +3,12 @@ import { ArrowLeft, Plus, ExternalLink, Search, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-
-interface QuickLink {
-  id: string;
-  label: string;
-  url: string;
-  category: string;
-  pinned: boolean;
-}
+import { useQuickLinks } from "@/hooks/useQuickLinks";
+import { useAuth } from "@/hooks/useAuth";
 
 const QuickLinksPage = () => {
-  const [links, setLinks] = useState<QuickLink[]>([
-    // Sample links to get started - user can modify these
-    { id: "1", label: "Gmail", url: "https://gmail.com", category: "Personal", pinned: true },
-    { id: "2", label: "GitHub", url: "https://github.com", category: "Dev", pinned: true },
-    { id: "3", label: "AWS Console", url: "https://console.aws.amazon.com", category: "Work", pinned: false },
-    { id: "4", label: "Stack Overflow", url: "https://stackoverflow.com", category: "Dev", pinned: false },
-    { id: "5", label: "LinkedIn", url: "https://linkedin.com", category: "Work", pinned: false },
-  ]);
+  const { links, loading, addLink, deleteLink, togglePin } = useQuickLinks();
+  const { user } = useAuth();
   
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -28,51 +16,64 @@ const QuickLinksPage = () => {
   const [newLink, setNewLink] = useState({ label: "", url: "", category: "Personal" });
   const { toast } = useToast();
 
-  const categories = ["All", ...Array.from(new Set(links.map(link => link.category)))];
+  const categories = ["All", ...Array.from(new Set(links.map(link => link.category).filter(Boolean)))];
   const filteredLinks = links.filter(link => {
-    const matchesSearch = link.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         link.url.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (link.label || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (link.url || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === "All" || link.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
-  const pinnedLinks = filteredLinks.filter(link => link.pinned);
-  const unpinnedLinks = filteredLinks.filter(link => !link.pinned);
+  // Use position for pinning logic - low positions are "pinned"
+  const pinnedLinks = filteredLinks.filter(link => (link.position || 999) < 100);
+  const unpinnedLinks = filteredLinks.filter(link => (link.position || 999) >= 100);
 
-  const handleAddLink = () => {
+  const handleAddLink = async () => {
     if (!newLink.label.trim() || !newLink.url.trim()) return;
     
-    const link: QuickLink = {
-      id: Date.now().toString(),
+    const result = await addLink({
       label: newLink.label.trim(),
       url: newLink.url.trim(),
       category: newLink.category,
-      pinned: false
-    };
+    });
     
-    setLinks(prev => [...prev, link]);
+    if (result.error) return;
+    
     setNewLink({ label: "", url: "", category: "Personal" });
     setShowAddForm(false);
-    
-    toast({
-      description: "Quick link added successfully",
-      duration: 2000,
-    });
   };
 
-  const togglePin = (id: string) => {
-    setLinks(prev => prev.map(link => 
-      link.id === id ? { ...link, pinned: !link.pinned } : link
-    ));
+  const handleTogglePin = async (id: string) => {
+    await togglePin(id);
   };
 
-  const deleteLink = (id: string) => {
-    setLinks(prev => prev.filter(link => link.id !== id));
-    toast({
-      description: "Quick link removed",
-      duration: 2000,
-    });
+  const handleDeleteLink = async (id: string) => {
+    await deleteLink(id);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-bg to-bg/80 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted">Loading quick links...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-bg to-bg/80 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-4">Please log in to manage your quick links</h2>
+          <Button onClick={() => window.location.hash = '#/auth'} className="btn-primary">
+            Go to Login
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-bg to-bg/80 transition-all duration-500">
@@ -202,14 +203,14 @@ const QuickLinksPage = () => {
                     </div>
                     <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                       <button
-                        onClick={() => togglePin(link.id)}
+                        onClick={() => handleTogglePin(link.id)}
                         className="btn-ghost p-1 text-xs"
                         title="Unpin"
                       >
                         📌
                       </button>
                       <button
-                        onClick={() => deleteLink(link.id)}
+                        onClick={() => handleDeleteLink(link.id)}
                         className="btn-ghost p-1 text-danger text-xs"
                         title="Delete"
                       >
@@ -218,7 +219,7 @@ const QuickLinksPage = () => {
                     </div>
                   </div>
                   <a 
-                    href={link.url} 
+                    href={link.url || '#'} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="block hover:text-primary transition-colors"
@@ -264,14 +265,14 @@ const QuickLinksPage = () => {
                     </div>
                     <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                       <button
-                        onClick={() => togglePin(link.id)}
+                        onClick={() => handleTogglePin(link.id)}
                         className="btn-ghost p-1 text-xs"
                         title="Pin to top"
                       >
                         📌
                       </button>
                       <button
-                        onClick={() => deleteLink(link.id)}
+                        onClick={() => handleDeleteLink(link.id)}
                         className="btn-ghost p-1 text-danger text-xs"
                         title="Delete"
                       >
@@ -280,7 +281,7 @@ const QuickLinksPage = () => {
                     </div>
                   </div>
                   <a 
-                    href={link.url} 
+                    href={link.url || '#'} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="block hover:text-primary transition-colors"
