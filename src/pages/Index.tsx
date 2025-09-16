@@ -235,8 +235,10 @@ const Dashboard = () => {
 
           {/* Kanban Summary */}
           <KanbanSummaryCard />
+        </div>
 
-          {/* Scratchpad */}
+        {/* Full Width Scratchpad Section */}
+        <div className="mt-8">
           <ScratchpadCard />
         </div>
       </main>
