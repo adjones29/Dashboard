@@ -125,9 +125,8 @@ const Dashboard = () => {
         <div className="mb-8 flex gap-4 overflow-x-auto pb-2">
           <Button 
             className="btn-primary whitespace-nowrap"
-            onClick={() => window.location.hash = '#/quick-links'}
           >
-            🔗 Quick Links
+            ⚡ Routines
           </Button>
           <Button 
             variant="outline" 
@@ -154,22 +153,29 @@ const Dashboard = () => {
 
         {/* Summary Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {/* Quick Links Summary */}
-          <div className="dashboard-card p-6 cursor-pointer hover:shadow-lg transition-shadow" 
-               onClick={() => window.location.hash = '#/quick-links'}>
+          {/* Routines Summary */}
+          <div className="dashboard-card p-6 cursor-pointer hover:shadow-lg transition-shadow">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-primary/20 to-accent/10 rounded-xl flex items-center justify-center">
-                <span className="text-primary text-lg">🔗</span>
+              <div className="w-10 h-10 bg-gradient-to-br from-warning/20 to-accent/10 rounded-xl flex items-center justify-center">
+                <span className="text-warning text-lg">⚡</span>
               </div>
               <div>
-                <h3 className="text-lg font-semibold">Quick Links</h3>
-                <p className="text-sm text-muted">Access your shortcuts</p>
+                <h3 className="text-lg font-semibold">Daily Routine</h3>
+                <p className="text-sm text-muted">Your daily habits</p>
               </div>
             </div>
-            <div className="space-y-2">
-              <p className="text-sm text-muted">Ready to add your favorite links</p>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <div className="flex justify-between text-sm">
+                  <span>Morning Workout</span>
+                  <span className="text-warning">75%</span>
+                </div>
+                <div className="w-full bg-muted/20 rounded-full h-2">
+                  <div className="bg-gradient-to-r from-warning to-warning/80 h-2 rounded-full" style={{width: '75%'}}></div>
+                </div>
+              </div>
               <div className="flex justify-between items-center text-sm">
-                <span className="text-muted">0 links saved</span>
+                <span className="text-muted">3 of 4 completed</span>
                 <span className="text-primary hover:underline">View all →</span>
               </div>
             </div>
