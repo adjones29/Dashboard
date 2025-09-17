@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
-import { listKanbanTasks, createKanbanTask, updateKanbanTask, deleteKanbanTask } from "@/lib/data";
+import { listKanbanTasks, createKanbanTask, updateKanbanTask, deleteKanbanTask, moveKanbanTask, KANBAN_STATUSES, type KanbanStatus } from "@/lib/data";
 
 interface KanbanTask {
   id: string;
@@ -16,22 +16,24 @@ interface KanbanTask {
   position: number;
 }
 
-const COLUMN_CONFIG = {
-  backlog: { title: "Backlog", color: "bg-muted/50", textColor: "text-muted-foreground" },
-  todo: { title: "To Do", color: "bg-primary/10", textColor: "text-primary" },
-  doing: { title: "Doing", color: "bg-warning/10", textColor: "text-warning" },
-  done: { title: "Done", color: "bg-accent/10", textColor: "text-accent" }
+const COLUMN_CONFIG: Record<KanbanStatus, { title: string; color: string; textColor: string }> = {
+  'Backlog': { title: "Backlog", color: "bg-muted/50", textColor: "text-muted-foreground" },
+  'Open': { title: "Open", color: "bg-primary/10", textColor: "text-primary" },
+  'Working': { title: "Working", color: "bg-warning/10", textColor: "text-warning" },
+  'With Team': { title: "With Team", color: "bg-accent/10", textColor: "text-accent" },
+  'Done': { title: "Done", color: "bg-success/10", textColor: "text-success" }
 };
 
 const Kanban = () => {
-  const [tasks, setTasks] = useState<KanbanTask[]>([]);
-  const [filteredTasks, setFilteredTasks] = useState<KanbanTask[]>([]);
+  const [tasksByColumn, setTasksByColumn] = useState<Record<KanbanStatus, KanbanTask[]>>({
+    'Backlog': [], 'Open': [], 'Working': [], 'With Team': [], 'Done': []
+  });
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<KanbanTask | null>(null);
   const [newTask, setNewTask] = useState({
     text: "",
-    column: "backlog" as keyof typeof COLUMN_CONFIG
+    column: "Backlog" as KanbanStatus
   });
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -45,7 +47,7 @@ const Kanban = () => {
     try {
       const { data, error } = await listKanbanTasks();
       if (error) throw error;
-      setTasks(data || []);
+      setTasksByColumn(data);
     } catch (error) {
       console.error("Error loading tasks:", error);
       toast({
@@ -58,26 +60,21 @@ const Kanban = () => {
     }
   };
 
-  // Filter tasks based on search
-  useEffect(() => {
-    let filtered = tasks;
+  // Get filtered tasks for display
+  const getFilteredTasksByColumn = (column: KanbanStatus) => {
+    const columnTasks = tasksByColumn[column] || [];
+    if (!searchTerm) return columnTasks;
     
-    if (searchTerm) {
-      filtered = filtered.filter(task => 
-        task.text.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-    
-    setFilteredTasks(filtered);
-  }, [tasks, searchTerm]);
+    return columnTasks.filter(task => 
+      task.text.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  };
 
   const handleAddTask = async () => {
     if (!newTask.text.trim()) return;
 
-    const maxPosition = Math.max(
-      ...tasks.filter(t => t.column === newTask.column).map(t => t.position),
-      -1
-    );
+    const columnTasks = tasksByColumn[newTask.column] || [];
+    const maxPosition = Math.max(...columnTasks.map(t => t.position), -1);
 
     const task = {
       text: newTask.text.trim(),
@@ -90,8 +87,11 @@ const Kanban = () => {
       if (error) throw error;
       
       if (data && data[0]) {
-        setTasks(prev => [...prev, data[0]]);
-        setNewTask({ text: "", column: "backlog" });
+        setTasksByColumn(prev => ({
+          ...prev,
+          [newTask.column]: [...prev[newTask.column], data[0]]
+        }));
+        setNewTask({ text: "", column: "Backlog" });
         setIsAddTaskOpen(false);
         
         toast({
@@ -120,9 +120,16 @@ const Kanban = () => {
       });
       if (error) throw error;
       
-      setTasks(prev => prev.map(task => 
-        task.id === editingTask.id ? editingTask : task
-      ));
+      // Update the task in the correct column
+      setTasksByColumn(prev => {
+        const newState = { ...prev };
+        for (const column of KANBAN_STATUSES) {
+          newState[column] = prev[column].map(task => 
+            task.id === editingTask.id ? editingTask : task
+          );
+        }
+        return newState;
+      });
       setEditingTask(null);
       
       toast({
@@ -144,7 +151,14 @@ const Kanban = () => {
       const { error } = await deleteKanbanTask(taskId);
       if (error) throw error;
       
-      setTasks(prev => prev.filter(task => task.id !== taskId));
+      // Remove task from all columns
+      setTasksByColumn(prev => {
+        const newState = { ...prev };
+        for (const column of KANBAN_STATUSES) {
+          newState[column] = prev[column].filter(task => task.id !== taskId);
+        }
+        return newState;
+      });
       
       toast({
         description: "Task deleted",
@@ -164,31 +178,39 @@ const Kanban = () => {
     if (!result.destination) return;
 
     const { source, destination } = result;
-    const sourceColumn = source.droppableId;
-    const destinationColumn = destination.droppableId;
+    const sourceColumn = source.droppableId as KanbanStatus;
+    const destinationColumn = destination.droppableId as KanbanStatus;
+    const taskId = result.draggableId;
 
-    const updatedTasks = [...tasks];
-    const taskToMove = updatedTasks.find(task => task.id === result.draggableId);
+    // Optimistically update UI
+    const newTasksByColumn = { ...tasksByColumn };
+    const sourceTasks = [...newTasksByColumn[sourceColumn]];
+    const destTasks = sourceColumn === destinationColumn ? sourceTasks : [...newTasksByColumn[destinationColumn]];
     
-    if (!taskToMove) return;
-
-    // Update the task
-    taskToMove.column = destinationColumn;
-    taskToMove.position = destination.index;
-
-    setTasks(updatedTasks);
+    // Remove from source
+    const [movedTask] = sourceTasks.splice(source.index, 1);
+    movedTask.column = destinationColumn;
+    
+    // Add to destination
+    destTasks.splice(destination.index, 0, movedTask);
+    
+    // Update state
+    newTasksByColumn[sourceColumn] = sourceTasks;
+    newTasksByColumn[destinationColumn] = destTasks;
+    setTasksByColumn(newTasksByColumn);
 
     // Update in database
     try {
-      const { error } = await updateKanbanTask(taskToMove.id, {
-        column: destinationColumn,
-        position: destination.index
+      const idsInTarget = destTasks.map(task => task.id);
+      await moveKanbanTask({
+        id: taskId,
+        toStatus: destinationColumn,
+        idsInTarget
       });
-      if (error) throw error;
       
       if (sourceColumn !== destinationColumn) {
         toast({
-          description: `Task moved to ${COLUMN_CONFIG[destinationColumn as keyof typeof COLUMN_CONFIG].title}`,
+          description: `Task moved to ${COLUMN_CONFIG[destinationColumn].title}`,
           duration: 2000,
         });
       }
@@ -202,12 +224,6 @@ const Kanban = () => {
         variant: "destructive",
       });
     }
-  };
-
-  const getTasksByColumn = (column: string) => {
-    return filteredTasks
-      .filter(task => task.column === column)
-      .sort((a, b) => a.position - b.position);
   };
 
   if (loading) {
@@ -259,7 +275,7 @@ const Kanban = () => {
           <div className="flex items-center gap-4">
             <h2 className="text-2xl font-bold">Project Board</h2>
             <Badge variant="outline" className="text-sm">
-              {tasks.length} tasks
+              {KANBAN_STATUSES.reduce((total, status) => total + tasksByColumn[status].length, 0)} tasks
             </Badge>
           </div>
 
@@ -291,14 +307,14 @@ const Kanban = () => {
                   placeholder="Task description..."
                   className="input-field"
                 />
-                <Select value={newTask.column} onValueChange={(value: keyof typeof COLUMN_CONFIG) => setNewTask(prev => ({ ...prev, column: value }))}>
+                <Select value={newTask.column} onValueChange={(value: KanbanStatus) => setNewTask(prev => ({ ...prev, column: value }))}>
                   <SelectTrigger className="input-field">
                     <SelectValue placeholder="Select column" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(COLUMN_CONFIG).map(([column, config]) => (
-                      <SelectItem key={column} value={column}>
-                        {config.title}
+                    {KANBAN_STATUSES.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {COLUMN_CONFIG[status].title}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -313,12 +329,13 @@ const Kanban = () => {
 
         {/* Kanban Board */}
         <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {Object.entries(COLUMN_CONFIG).map(([column, config]) => {
-              const columnTasks = getTasksByColumn(column);
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+            {KANBAN_STATUSES.map((status) => {
+              const columnTasks = getFilteredTasksByColumn(status);
+              const config = COLUMN_CONFIG[status];
               
               return (
-                <div key={column} className="dashboard-card p-4">
+                <div key={status} className="dashboard-card p-4">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className={`font-semibold ${config.textColor}`}>
                       {config.title}
@@ -328,7 +345,7 @@ const Kanban = () => {
                     </Badge>
                   </div>
                   
-                  <Droppable droppableId={column}>
+                  <Droppable droppableId={status}>
                     {(provided, snapshot) => (
                       <div
                         ref={provided.innerRef}
@@ -401,14 +418,14 @@ const Kanban = () => {
                   placeholder="Task description..."
                   className="input-field"
                 />
-                <Select value={editingTask.column} onValueChange={(value: string) => setEditingTask(prev => prev ? { ...prev, column: value } : null)}>
+                <Select value={editingTask.column} onValueChange={(value: KanbanStatus) => setEditingTask(prev => prev ? { ...prev, column: value } : null)}>
                   <SelectTrigger className="input-field">
                     <SelectValue placeholder="Select column" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(COLUMN_CONFIG).map(([column, config]) => (
-                      <SelectItem key={column} value={column}>
-                        {config.title}
+                    {KANBAN_STATUSES.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {COLUMN_CONFIG[status].title}
                       </SelectItem>
                     ))}
                   </SelectContent>

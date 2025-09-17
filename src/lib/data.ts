@@ -57,19 +57,95 @@ export async function deleteTodo(id: string) {
 }
 
 // KANBAN
+export const KANBAN_STATUSES = ['Backlog', 'Open', 'Working', 'With Team', 'Done'] as const;
+export type KanbanStatus = typeof KANBAN_STATUSES[number];
+
+export const STATUS_INDEX: Record<KanbanStatus, number> = {
+  'Backlog': 0, 'Open': 1, 'Working': 2, 'With Team': 3, 'Done': 4
+};
+
 export async function listKanbanTasks() {
-  return supabase.from("kanban_tasks")
-    .select("*")
-    .order("position", { ascending: true });
+  const { data, error } = await supabase
+    .from('kanban_tasks')
+    .select('*')
+    .order('updated_at', { ascending: false });
+  
+  if (error) throw error;
+
+  // Bucket by status with fixed order, and sort each bucket by position asc
+  const buckets: Record<KanbanStatus, any[]> = {
+    'Backlog': [], 'Open': [], 'Working': [], 'With Team': [], 'Done': []
+  };
+  
+  for (const row of (data || [])) {
+    const originalStatus = row.column ?? 'Backlog';
+    let status: KanbanStatus;
+    
+    // Handle exact matches first
+    if (KANBAN_STATUSES.includes(originalStatus as KanbanStatus)) {
+      status = originalStatus as KanbanStatus;
+    } else {
+      // Back-compat mapping for old status values
+      if (originalStatus === 'backlog' || originalStatus === 'todo') {
+        status = 'Backlog';
+      } else if (originalStatus === 'doing' || originalStatus === 'working') {
+        status = 'Working';
+      } else if (originalStatus === 'done') {
+        status = 'Done';
+      } else {
+        status = 'Backlog'; // fallback
+      }
+    }
+    
+    buckets[status].push({...row, column: status});
+  }
+  
+  // Sort each bucket by position
+  for (const k of KANBAN_STATUSES) {
+    buckets[k].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+  }
+  
+  return { data: buckets, error: null };
 }
-export async function createKanbanTask(task: any) { 
-  return supabase.from("kanban_tasks").insert(task).select(); 
+
+export async function createKanbanTask(task: any) {
+  const row = { column: 'Backlog', position: 0, ...task };
+  return supabase.from("kanban_tasks").insert(row).select(); 
 }
+
 export async function updateKanbanTask(id: string, patch: any) { 
   return supabase.from("kanban_tasks").update(patch).eq("id", id).select(); 
 }
+
 export async function deleteKanbanTask(id: string) { 
   return supabase.from("kanban_tasks").delete().eq("id", id); 
+}
+
+export async function moveKanbanTask({
+  id,
+  toStatus,
+  idsInTarget
+}: {
+  id: string;
+  toStatus: KanbanStatus;
+  idsInTarget: string[];
+}) {
+  // 1) Move the card to the new status
+  const { error: moveErr } = await supabase
+    .from('kanban_tasks')
+    .update({ column: toStatus, position: 0 })
+    .eq('id', id);
+  if (moveErr) throw moveErr;
+
+  // 2) Reindex every card in the target column according to idsInTarget
+  const updates = idsInTarget.map((cardId, idx) =>
+    supabase.from('kanban_tasks').update({ position: idx }).eq('id', cardId)
+  );
+  const results = await Promise.all(updates);
+  const failed = results.find(r => (r as any)?.error);
+  if (failed) throw (failed as any).error;
+
+  return { ok: true };
 }
 
 // ROUTINES (Dashboard Daily Routine)

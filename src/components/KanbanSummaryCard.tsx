@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { listKanbanTasks } from "@/lib/data";
+import { listKanbanTasks, KANBAN_STATUSES, type KanbanStatus } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
 
-// Match the interface from Kanban.tsx
 interface KanbanTask {
   id: string;
   text: string;
@@ -11,11 +10,12 @@ interface KanbanTask {
   position: number;
 }
 
-const COLUMN_CONFIG = {
-  backlog: { title: "Backlog", bgColor: "bg-muted/10", textColor: "text-muted-foreground" },
-  todo: { title: "To Do", bgColor: "bg-primary/10", textColor: "text-primary" },
-  doing: { title: "Doing", bgColor: "bg-warning/10", textColor: "text-warning" },
-  done: { title: "Done", bgColor: "bg-accent/10", textColor: "text-accent" }
+const COLUMN_CONFIG: Record<KanbanStatus, { title: string; bgColor: string; textColor: string }> = {
+  'Backlog': { title: "Backlog", bgColor: "bg-muted/10", textColor: "text-muted-foreground" },
+  'Open': { title: "Open", bgColor: "bg-primary/10", textColor: "text-primary" },
+  'Working': { title: "Working", bgColor: "bg-warning/10", textColor: "text-warning" },
+  'With Team': { title: "With Team", bgColor: "bg-accent/10", textColor: "text-accent" },
+  'Done': { title: "Done", bgColor: "bg-success/10", textColor: "text-success" }
 };
 
 const KanbanSummaryCard = () => {
@@ -31,7 +31,13 @@ const KanbanSummaryCard = () => {
     try {
       const { data, error } = await listKanbanTasks();
       if (error) throw error;
-      setTasks(data || []);
+      
+      // Flatten the buckets back to a single array for the summary card
+      const allTasks: KanbanTask[] = [];
+      for (const status of KANBAN_STATUSES) {
+        allTasks.push(...(data[status] || []));
+      }
+      setTasks(allTasks);
     } catch (error) {
       console.error("Error loading kanban tasks:", error);
       toast({
@@ -45,11 +51,12 @@ const KanbanSummaryCard = () => {
   };
 
   const getColumnCounts = () => {
-    const counts = {
-      backlog: tasks.filter(task => task.column === 'backlog').length,
-      todo: tasks.filter(task => task.column === 'todo').length,
-      doing: tasks.filter(task => task.column === 'doing').length,
-      done: tasks.filter(task => task.column === 'done').length,
+    const counts: Record<KanbanStatus, number> = {
+      'Backlog': tasks.filter(task => task.column === 'Backlog').length,
+      'Open': tasks.filter(task => task.column === 'Open').length,
+      'Working': tasks.filter(task => task.column === 'Working').length,
+      'With Team': tasks.filter(task => task.column === 'With Team').length,
+      'Done': tasks.filter(task => task.column === 'Done').length,
     };
     return counts;
   };
@@ -104,14 +111,22 @@ const KanbanSummaryCard = () => {
         
         {/* Column counts */}
         <div className="grid grid-cols-2 gap-2 text-xs">
-          {Object.entries(columnCounts).map(([status, count]) => (
-            <div key={status} className={`p-2 rounded-lg ${COLUMN_CONFIG[status as keyof typeof COLUMN_CONFIG].bgColor}`}>
-              <div className={`font-medium ${COLUMN_CONFIG[status as keyof typeof COLUMN_CONFIG].textColor}`}>
-                {COLUMN_CONFIG[status as keyof typeof COLUMN_CONFIG].title}
+          {KANBAN_STATUSES.slice(0, 4).map((status) => (
+            <div key={status} className={`p-2 rounded-lg ${COLUMN_CONFIG[status].bgColor}`}>
+              <div className={`font-medium ${COLUMN_CONFIG[status].textColor}`}>
+                {COLUMN_CONFIG[status].title}
               </div>
-              <div className="text-lg font-bold">{count}</div>
+              <div className="text-lg font-bold">{columnCounts[status]}</div>
             </div>
           ))}
+        </div>
+        
+        {/* Done count separately */}
+        <div className={`p-2 rounded-lg ${COLUMN_CONFIG['Done'].bgColor}`}>
+          <div className={`font-medium ${COLUMN_CONFIG['Done'].textColor}`}>
+            {COLUMN_CONFIG['Done'].title}
+          </div>
+          <div className="text-lg font-bold">{columnCounts['Done']}</div>
         </div>
         
         {/* Recent tasks */}
@@ -123,11 +138,12 @@ const KanbanSummaryCard = () => {
                 <div key={task.id} className="flex items-center justify-between">
                   <span className="text-xs truncate flex-1 mr-2">{task.text}</span>
                   <span className={`text-xs px-1 py-0.5 rounded text-white ${
-                    task.column === 'done' ? 'bg-accent' :
-                    task.column === 'doing' ? 'bg-warning' :
-                    task.column === 'todo' ? 'bg-primary' : 'bg-muted'
+                    task.column === 'Done' ? 'bg-success' :
+                    task.column === 'Working' ? 'bg-warning' :
+                    task.column === 'With Team' ? 'bg-accent' :
+                    task.column === 'Open' ? 'bg-primary' : 'bg-muted'
                   }`}>
-                    {COLUMN_CONFIG[task.column as keyof typeof COLUMN_CONFIG]?.title || task.column}
+                    {COLUMN_CONFIG[task.column as KanbanStatus]?.title || task.column}
                   </span>
                 </div>
               ))}
@@ -137,7 +153,7 @@ const KanbanSummaryCard = () => {
         
         <div className="flex justify-between items-center text-sm">
           <span className="text-muted">
-            {totalTasks === 0 ? "No tasks yet" : `${columnCounts.done} completed`}
+            {totalTasks === 0 ? "No tasks yet" : `${columnCounts['Done']} completed`}
           </span>
           <span className="text-primary hover:underline">Open Kanban →</span>
         </div>
